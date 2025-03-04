@@ -5,7 +5,7 @@ import {
     FILE_ERROR,
     SET_LOADING,
     CLEAR_FILES
-  } from '../types';
+  } from '../type';
   
   export default (state, action) => {
     switch (action.type) {

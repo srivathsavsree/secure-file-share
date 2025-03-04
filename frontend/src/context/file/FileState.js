@@ -1,7 +1,7 @@
 import React, { useReducer } from 'react';
 import axios from 'axios';
-import FileContext from './fileContext';
-import fileReducer from './fileReducer';
+import {FileContext,FileProvider} from './fileContext';
+import fileReducer from './FileReducer';
 import {
   GET_FILES,
   ADD_FILE,
@@ -9,7 +9,7 @@ import {
   FILE_ERROR,
   SET_LOADING,
   CLEAR_FILES
-} from '../types';
+} from '../type';
 
 const FileState = props => {
   const initialState = {

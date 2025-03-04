@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthContext from '../../context/auth/authContext';
+import {AuthContext,AuthProvider} from '../../context/auth/authContext';
 
 const Home = () => {
   const authContext = useContext(AuthContext);

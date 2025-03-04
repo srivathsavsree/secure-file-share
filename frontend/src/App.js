@@ -6,12 +6,12 @@ import About from './components/pages/About';
 import Register from './components/auth/Register';
 import Login from './components/auth/Login';
 import Dashboard from './components/dashboard/Dashboard';
-import Alerts from './components/layout/Alerts';
+import Alerts from './components/layout/Alert';
 import PrivateRoute from './components/routing/PrivateRoute';
 
 import AuthState from './context/auth/AuthState';
 import FileState from './context/file/FileState';
-import AlertState from './context/alert/AlertState';
+import AlertState from './context/alert/alertState';
 import setAuthToken from './utils/setAuthToken';
 
 import './App.css';
