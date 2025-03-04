@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from 'react';
-import { AuthContext } from '../../context/AuthContext';
-import { FileContext } from '../../context/FileContext';
+import { AuthContext } from '../../context/auth/authContext';
+import { FileContext } from '../../context/file/fileContext';
 import FileUpload from '../files/FileUpload';
 import FileList from '../files/FileList';
 import Spinner from '../layout/Spinner';

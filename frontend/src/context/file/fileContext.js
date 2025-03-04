@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { toast } from 'react-toastify';
-import { uploadFile, getUserFiles, deleteFile, getDownloadUrl } from '../utils/api';
-import { AuthContext } from './AuthContext';
+import { uploadFile, getUserFiles, deleteFile, getDownloadUrl } from '../../utils/api';
+import { AuthContext } from '../auth/authContext';
 
 // Create context
 export const FileContext = createContext();

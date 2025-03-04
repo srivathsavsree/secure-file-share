@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { FileContext } from '../../context/FileContext';
+import { FileContext } from '../../context/file/fileContext';
 import Spinner from '../layout/Spinner';
 import FileItem from './FileItem';
 

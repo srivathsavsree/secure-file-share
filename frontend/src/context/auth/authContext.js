@@ -1,10 +1,12 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { registerUser, loginUser, getCurrentUser } from '../utils/api';
-import { setToken, removeToken, isAuthenticated, getUserInfo } from '../utils/auth';
+import { registerUser, loginUser, getCurrentUser } from '../../utils/api';
+import { setToken, removeToken, isAuthenticated, getUserInfo } from '../../utils/auth';
+
 
 // Create context
 export const AuthContext = createContext();
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

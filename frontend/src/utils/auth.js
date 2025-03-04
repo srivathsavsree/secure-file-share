@@ -1,4 +1,6 @@
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
+
+// Rest of your existing code, just change the import
 
 // Save token to localStorage
 export const setToken = (token) => {

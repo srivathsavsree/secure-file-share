@@ -1,21 +1,14 @@
-// Alert Types
-export const SET_ALERT = 'SET_ALERT';
-export const REMOVE_ALERT = 'REMOVE_ALERT';
-
-// Auth Types
 export const REGISTER_SUCCESS = 'REGISTER_SUCCESS';
 export const REGISTER_FAIL = 'REGISTER_FAIL';
-export const USER_LOADED = 'USER_LOADED';
-export const AUTH_ERROR = 'AUTH_ERROR';
 export const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
 export const LOGIN_FAIL = 'LOGIN_FAIL';
 export const LOGOUT = 'LOGOUT';
+export const USER_LOADED = 'USER_LOADED';
+export const AUTH_ERROR = 'AUTH_ERROR';
 export const CLEAR_ERRORS = 'CLEAR_ERRORS';
-
-// File Types
+export const FILE_UPLOAD_SUCCESS = 'FILE_UPLOAD_SUCCESS';
+export const FILE_UPLOAD_FAIL = 'FILE_UPLOAD_FAIL';
 export const GET_FILES = 'GET_FILES';
-export const ADD_FILE = 'ADD_FILE';
-export const DELETE_FILE = 'DELETE_FILE';
 export const FILE_ERROR = 'FILE_ERROR';
-export const SET_LOADING = 'SET_LOADING';
-export const CLEAR_FILES = 'CLEAR_FILES';
+export const SET_ALERT = 'SET_ALERT';
+export const REMOVE_ALERT = 'REMOVE_ALERT';

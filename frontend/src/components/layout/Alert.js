@@ -1,21 +1,17 @@
-import React from 'react';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import React, { useContext } from 'react';
+import AlertContext from '../../context/alert/alertContext';
 
-const Alert = () => {
+const Alerts = () => {
+  const alertContext = useContext(AlertContext);
+
   return (
-    <ToastContainer
-      position="top-right"
-      autoClose={5000}
-      hideProgressBar={false}
-      newestOnTop
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      draggable
-      pauseOnHover
-    />
+    alertContext.alerts.length > 0 && 
+    alertContext.alerts.map(alert => (
+      <div key={alert.id} className={`alert alert-${alert.type}`}>
+        {alert.msg}
+      </div>
+    ))
   );
 };
 
-export default Alert;
+export default Alerts;
