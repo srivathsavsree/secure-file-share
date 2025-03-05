@@ -11,7 +11,11 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials:true
+}));
 app.use(express.json());
 
 // Create uploads directory if it doesn't exist

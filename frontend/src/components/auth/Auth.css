@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+body {
+    background: linear-gradient(45deg, #ff00ff, #00ffff, #ff6600, #66ff66);
+    background-size: 400% 400%;
+    animation: bgAnimation 10s infinite alternate;
+    font-family: 'Press Start 2P', cursive;
+    text-align: center;
+}
+
+@keyframes bgAnimation {
+    0% { background-position: left top; }
+    100% { background-position: right bottom; }
+}
+
+.auth-container {
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+.auth-title {
+    color: #ff6600;
+    text-shadow: 3px 3px 0px #000;
+}
+
+.auth-form input {
+    display: block;
+    width: 90%;
+    margin: 10px auto;
+    padding: 10px;
+    border-radius: 10px;
+    border: 2px solid #ff00ff;
+    background: black;
+    color: #fff;
+    font-size: 14px;
+}
+
+.auth-form button {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: #ff00ff;
+    color: #fff;
+    font-size: 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.3s;
+}
+
+.auth-form button:hover {
+    background: #00ffff;
+    transform: scale(1.1);
+}
+
+.error-message {
+    color: red;
+    font-size: 14px;
+}

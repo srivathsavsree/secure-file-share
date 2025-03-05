@@ -1,101 +1,53 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../context/auth/authContext';
-import Spinner from '../layout/Spinner';
+import React, { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import "./Auth.css"; // Import CSS file
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [formErrors, setFormErrors] = useState({});
-  
-  const { email, password } = formData;
-  const { login, isAuthenticated, loading } = useContext(AuthContext);
-  const navigate = useNavigate();
+    const [formData, setFormData] = useState({
+        email: "",
+        password: "",
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
+    const navigate = useNavigate();
 
-  const onChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Clear error when user types
-    if (formErrors[e.target.name]) {
-      setFormErrors({ ...formErrors, [e.target.name]: '' });
-    }
-  };
+    const { email, password } = formData;
 
-  const validateForm = () => {
-    const errors = {};
-    
-    if (!email.trim()) errors.email = 'Email is required';
-    if (!password) errors.password = 'Password is required';
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+    const onChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (validateForm()) {
-      const success = await login({ email, password });
-      if (success) {
-        navigate('/dashboard');
-      }
-    }
-  };
+    const onSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
 
-  if (loading) {
-    return <Spinner />;
-  }
+        try {
+            const res = await axios.post("http://localhost:5000/api/users/login", formData);
+            localStorage.setItem("token", res.data.token);
+            navigate("/dashboard");
+        } catch (err) {
+            setError(err.response?.data?.message || "Invalid credentials. Try again!");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Login</h1>
-        <p className="auth-subtitle">Sign Into Your Account</p>
-        
-        <form className="auth-form" onSubmit={onSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={email}
-              onChange={onChange}
-              className={formErrors.email ? 'input-error' : ''}
-            />
-            {formErrors.email && <span className="error-message">{formErrors.email}</span>}
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={password}
-              onChange={onChange}
-              className={formErrors.password ? 'input-error' : ''}
-            />
-            {formErrors.password && <span className="error-message">{formErrors.password}</span>}
-          </div>
-          
-          <button type="submit" className="btn btn-primary">Login</button>
-        </form>
-        
-        <p className="auth-redirect">
-          Don't have an account? <Link to="/register">Sign Up</Link>
-        </p>
-      </div>
-    </div>
-  );
+    return (
+        <div className="auth-container">
+            <h2 className="auth-title">🔥 Welcome Back! 🔥</h2>
+            {error && <p className="error-message">{error}</p>}
+            <form onSubmit={onSubmit} className="auth-form">
+                <input type="email" name="email" value={email} onChange={onChange} placeholder="Email" required />
+                <input type="password" name="password" value={password} onChange={onChange} placeholder="Password" required />
+                <button type="submit" disabled={loading}>
+                    {loading ? "Logging in..." : "🎉 Enter the Party 🎉"}
+                </button>
+            </form>
+        </div>
+    );
 };
 
 export default Login;

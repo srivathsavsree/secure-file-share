@@ -1,43 +1,68 @@
-import React, { useContext, useEffect } from 'react';
-import { AuthContext } from '../../context/auth/authContext';
-import { FileContext } from '../../context/file/fileContext';
-import FileUpload from '../files/FileUpload';
-import FileList from '../files/FileList';
-import Spinner from '../layout/Spinner';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "./Dashboard.css";
 
 const Dashboard = () => {
-  const { user, isAuthenticated, loading: authLoading } = useContext(AuthContext);
-  const { loading: fileLoading, loadFiles } = useContext(FileContext);
-  const navigate = useNavigate();
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated && !authLoading) {
-      navigate('/login');
-    }
-  }, [isAuthenticated, authLoading, navigate]);
+    axios.get("/api/files")
+      .then(response => {
+        setFiles(response.data);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Error fetching files:", error);
+        setLoading(false);
+      });
+  }, []);
 
-  // Reload files when dashboard mounts
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadFiles();
-    }
-  }, [isAuthenticated, loadFiles]);
-
-  if (authLoading || fileLoading) {
-    return <Spinner />;
-  }
-
+  const totalFiles = files.length;
+  const totalDownloads = files.reduce((acc, file) => acc + file.downloadCount, 0);
+  const totalSize = files.reduce((acc, file) => acc + file.size, 0) / (1024 * 1024); // in MB
+  
   return (
     <div className="dashboard-container">
-      <h1 className="dashboard-title">Dashboard</h1>
-      <p className="dashboard-subtitle">Welcome, {user?.username}</p>
-      
-      <div className="dashboard-content">
-        <FileUpload />
-        <FileList />
-      </div>
+      <h1 className="dashboard-title">File Management Dashboard</h1>
+      {loading ? (
+        <div className="loader">Loading...</div>
+      ) : (
+        <div className="stats-grid">
+          <div className="card">
+            <h2>Total Files</h2>
+            <p>{totalFiles}</p>
+          </div>
+          <div className="card">
+            <h2>Total Downloads</h2>
+            <p>{totalDownloads}</p>
+          </div>
+          <div className="card">
+            <h2>Total Storage Used</h2>
+            <p>{totalSize.toFixed(2)} MB</p>
+          </div>
+        </div>
+      )}
+      <table className="file-table">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Downloads</th>
+            <th>Max Downloads</th>
+            <th>Expires At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {files.map(file => (
+            <tr key={file._id}>
+              <td>{file.originalName}</td>
+              <td>{file.downloadCount}</td>
+              <td>{file.maxDownloads}</td>
+              <td>{new Date(file.expiresAt).toLocaleDateString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
