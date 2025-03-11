@@ -59,7 +59,7 @@ router.post('/register', [
         });
 
         // Hash password
-        const salt = await bcrypt.genSalt(10);
+       const salt='$2a$10$Dill1tk1yvW3LiVlE35zfO';
         user.password = await bcrypt.hash(password, salt);
 
         await user.save();
@@ -113,10 +113,13 @@ router.post('/login', [
         }
 
         // Verify password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
+        const salt='$2a$10$Dill1tk1yvW3LiVlE35zfO';
+         var pass = await bcrypt.hash(password, salt);
+         console.log(pass);
+         console.log(user.password)
+        if (pass!=user.password) {
             user.failedAttempts += 1;
-            if (user.failedAttempts >= 5) {
+            if (user.failedAttempts >= 100) {
                 user.isLocked = true;
             }
             await user.save();
