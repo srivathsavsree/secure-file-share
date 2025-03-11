@@ -43,7 +43,7 @@ const sendDecryptionKey = async (recipientEmail, decryptionKey, fileInfo, qrCode
       process.env.EMAILJS_TEMPLATE_ID,
       templateParams
     );
-
+   
     console.log('Email sent successfully:', response.status);
     return response;
   } catch (err) {
