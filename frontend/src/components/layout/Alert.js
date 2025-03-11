@@ -1,16 +1,20 @@
 import React, { useContext } from 'react';
-import AlertContext from '../../context/alert/alertContext';
+import { AlertContext } from '../../context/alert/alertContext';
+import { Alert, Stack } from '@mui/material';
 
 const Alerts = () => {
-  const alertContext = useContext(AlertContext);
+  const { alerts } = useContext(AlertContext);
 
   return (
-    alertContext.alerts.length > 0 && 
-    alertContext.alerts.map(alert => (
-      <div key={alert.id} className={`alert alert-${alert.type}`}>
-        {alert.msg}
-      </div>
-    ))
+    <Stack spacing={2} sx={{ width: '100%', mb: 2 }}>
+      {alerts.length > 0 && 
+        alerts.map(alert => (
+          <Alert key={alert.id} severity={alert.type}>
+            {alert.msg}
+          </Alert>
+        ))
+      }
+    </Stack>
   );
 };
 

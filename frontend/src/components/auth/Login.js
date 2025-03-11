@@ -1,53 +1,129 @@
-import React, { useState } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import "./Auth.css"; // Import CSS file
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../context/auth/authContext';
+import { AlertContext } from '../../context/alert/alertContext';
+import {
+  Box,
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Avatar,
+  Link,
+} from '@mui/material';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 const Login = () => {
-    const [formData, setFormData] = useState({
-        email: "",
-        password: "",
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const authContext = useContext(AuthContext);
+  const { setAlert } = useContext(AlertContext);
 
-    const navigate = useNavigate();
+  const { login, error, clearErrors, isAuthenticated } = authContext;
 
-    const { email, password } = formData;
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
 
-    const onChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    if (error) {
+      setAlert(error, 'error');
+      clearErrors();
+    }
+    // eslint-disable-next-line
+  }, [error, isAuthenticated, navigate]);
 
-    const onSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
+  const [user, setUser] = useState({
+    email: '',
+    password: '',
+  });
 
-        try {
-            const res = await axios.post("http://localhost:5000/api/users/login", formData);
-            localStorage.setItem("token", res.data.token);
-            navigate("/dashboard");
-        } catch (err) {
-            setError(err.response?.data?.message || "Invalid credentials. Try again!");
-        } finally {
-            setLoading(false);
-        }
-    };
+  const { email, password } = user;
 
-    return (
-        <div className="auth-container">
-            <h2 className="auth-title">🔥 Welcome Back! 🔥</h2>
-            {error && <p className="error-message">{error}</p>}
-            <form onSubmit={onSubmit} className="auth-form">
-                <input type="email" name="email" value={email} onChange={onChange} placeholder="Email" required />
-                <input type="password" name="password" value={password} onChange={onChange} placeholder="Password" required />
-                <button type="submit" disabled={loading}>
-                    {loading ? "Logging in..." : "🎉 Enter the Party 🎉"}
-                </button>
-            </form>
-        </div>
-    );
+  const onChange = (e) => {
+    setUser({ ...user, [e.target.name]: e.target.value });
+  };
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (email === '' || password === '') {
+      setAlert('Please fill in all fields', 'error');
+    } else {
+      login({
+        email,
+        password,
+      });
+    }
+  };
+
+  return (
+    <Container component="main" maxWidth="xs">
+      <Box
+        sx={{
+          mt: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
+          <LockOutlinedIcon />
+        </Avatar>
+        <Typography component="h1" variant="h5">
+          Sign in
+        </Typography>
+        <Paper
+          component="form"
+          onSubmit={onSubmit}
+          sx={{
+            mt: 3,
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            width: '100%',
+          }}
+          elevation={2}
+        >
+          <TextField
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={onChange}
+          />
+          <TextField
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type="password"
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={onChange}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 2 }}
+          >
+            Sign In
+          </Button>
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Link href="/register" variant="body2">
+              {"Don't have an account? Sign Up"}
+            </Link>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
+  );
 };
 
 export default Login;

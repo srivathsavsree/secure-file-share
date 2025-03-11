@@ -1,74 +1,79 @@
-/* Dashboard.css */
+/* General container styling */
 .dashboard-container {
-    width: 80%;
-    margin: 20px auto;
-    font-family: Arial, sans-serif;
-    text-align: center;
-  }
-  
-  .dashboard-title {
-    font-size: 28px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .loader {
-    font-size: 20px;
-    color: #555;
-    margin-top: 20px;
-  }
-  
-  .stats-grid {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 20px;
-  }
-  
-  .card {
-    background: #f8f9fa;
+    max-width: 600px;
+    margin: 50px auto;
     padding: 20px;
+    background: #fff;
     border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    width: 30%;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
     text-align: center;
-  }
-  
-  .card h2 {
-    font-size: 20px;
-    margin-bottom: 10px;
-    color: #444;
-  }
-  
-  .card p {
-    font-size: 18px;
-    font-weight: bold;
-    color: #007bff;
-  }
-  
-  .file-table {
-    width: 100%;
-    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+}
+
+/* Headings */
+h2 {
+    color: #333;
+}
+
+/* Upload Section */
+.upload-section, .decrypt-section {
     margin-top: 20px;
-  }
-  
-  .file-table th, .file-table td {
+    padding: 15px;
     border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+/* Input fields */
+input {
+    width: 80%;
     padding: 10px;
-    text-align: left;
-  }
-  
-  .file-table th {
-    background: #007bff;
-    color: #fff;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+/* Buttons */
+button {
+    width: 85%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+/* Share section */
+.share-section {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #eef7ff;
+}
+
+/* Download section */
+.download-section {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #d4edda;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
     font-weight: bold;
-  }
-  
-  .file-table tr:nth-child(even) {
-    background: #f2f2f2;
-  }
-  
-  .file-table tr:hover {
-    background: #ddd;
-  }
-  
+}
+
+a:hover {
+    text-decoration: underline;
+}

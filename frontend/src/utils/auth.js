@@ -1,15 +1,25 @@
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from "jwt-decode";
+import axios from 'axios';
 
-// Rest of your existing code, just change the import
-
-// Save token to localStorage
-export const setToken = (token) => {
-  localStorage.setItem('token', token);
+// Set auth token in axios headers
+const setAuthHeader = (token) => {
+  if (token) {
+    axios.defaults.headers.common['x-auth-token'] = token;
+  } else {
+    delete axios.defaults.headers.common['x-auth-token'];
+  }
 };
 
-// Remove token from localStorage
+// Save token to localStorage and set axios header
+export const setToken = (token) => {
+  localStorage.setItem('token', token);
+  setAuthHeader(token);
+};
+
+// Remove token from localStorage and axios header
 export const removeToken = () => {
   localStorage.removeItem('token');
+  setAuthHeader(null);
 };
 
 // Get token from localStorage
@@ -46,5 +56,13 @@ export const getUserInfo = () => {
     return decoded.user;
   } catch (error) {
     return null;
+  }
+};
+
+// Initialize auth state
+export const initializeAuth = () => {
+  const token = getToken();
+  if (token) {
+    setAuthHeader(token);
   }
 };

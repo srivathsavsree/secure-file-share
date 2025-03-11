@@ -1,56 +1,69 @@
 const mongoose = require('mongoose');
 
-const FileSchema = new mongoose.Schema({
-  filename: {
-    type: String,
-    required: true
-  },
-  originalName: {
-    type: String,
-    required: true
-  },
-  encryptedPath: {
-    type: String,
-    required: true
-  },
-  mimeType: {
-    type: String,
-    required: true
-  },
-  size: {
-    type: Number,
-    required: true
-  },
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  downloadLink: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  downloadCount: {
-    type: Number,
-    default: 0
-  },
-  maxDownloads: {
-    type: Number,
-    default: 1 // Self-destruct after 1 download by default
-  },
-  expiresAt: {
-    type: Date,
-    required: true,
-    default: function() {
-      const now = new Date();
-      return new Date(now.setDate(now.getDate() + 7)); // 7 days from now
+const fileSchema = new mongoose.Schema({
+    filename: {
+        type: String,
+        required: true
+    },
+    originalName: {
+        type: String,
+        required: true
+    },
+    path: {
+        type: String,
+        required: true
+    },
+    size: {
+        type: Number,
+        required: true
+    },
+    mimeType: {
+        type: String,
+        required: true
+    },
+    sender: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    receiver: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    encryptionKey: {
+        type: String,
+        required: true
+    },
+    downloadAttempts: {
+        type: Number,
+        default: 0
+    },
+    maxAttempts: {
+        type: Number,
+        default: 3
+    },
+    isDestroyed: {
+        type: Boolean,
+        default: false
+    },
+    expiresAt: {
+        type: Date,
+        required: true,
+        default: () => new Date(+new Date() + 24 * 60 * 60 * 1000) // 24 hours from now
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'downloaded', 'expired', 'destroyed'],
+        default: 'pending'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
     }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
 });
 
-module.exports = mongoose.model('File', FileSchema);
+// Add index for automatic expiration
+fileSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+module.exports = mongoose.model('File', fileSchema);

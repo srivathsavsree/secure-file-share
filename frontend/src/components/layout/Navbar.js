@@ -1,57 +1,88 @@
 import React, { useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { AuthContext } from '../../context/auth/authContext';
 
 const Navbar = () => {
-  const { isAuthenticated, logout, user } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
   const navigate = useNavigate();
+  const { isAuthenticated, logout, user } = authContext;
 
-  const handleLogout = () => {
+  const onLogout = () => {
     logout();
     navigate('/login');
   };
 
-  return (
-    <nav className="navbar">
-      <div className="navbar-container">
-        <Link to="/" className="navbar-logo">
-          SecureShare
-        </Link>
+  const authLinks = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Typography variant="body1" sx={{ mr: 2 }}>
+        Welcome, {user && user.name}
+      </Typography>
+      <Button
+        color="inherit"
+        component={RouterLink}
+        to="/dashboard"
+        startIcon={<CloudUploadIcon />}
+      >
+        Dashboard
+      </Button>
+      <Button color="inherit" onClick={onLogout}>
+        Logout
+      </Button>
+    </Box>
+  );
 
-        <ul className="nav-menu">
-          {isAuthenticated ? (
-            <>
-              <li className="nav-item">
-                <span className="nav-username">Welcome, {user?.username}</span>
-              </li>
-              <li className="nav-item">
-                <Link to="/dashboard" className="nav-link">
-                  Dashboard
-                </Link>
-              </li>
-              <li className="nav-item">
-                <button onClick={handleLogout} className="nav-link btn-logout">
-                  Logout
-                </button>
-              </li>
-            </>
-          ) : (
-            <>
-              <li className="nav-item">
-                <Link to="/login" className="nav-link">
-                  Login
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link to="/register" className="nav-link">
-                  Register
-                </Link>
-              </li>
-            </>
-          )}
-        </ul>
-      </div>
-    </nav>
+  const guestLinks = (
+    <Box sx={{ display: 'flex', gap: 2 }}>
+      <Button color="inherit" component={RouterLink} to="/register">
+        Register
+      </Button>
+      <Button color="inherit" component={RouterLink} to="/login">
+        Login
+      </Button>
+    </Box>
+  );
+
+  return (
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <IconButton
+            size="large"
+            edge="start"
+            color="inherit"
+            aria-label="menu"
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              flexGrow: 1,
+              textDecoration: 'none',
+              color: 'inherit',
+              fontWeight: 700,
+            }}
+          >
+            Secure File Share
+          </Typography>
+          <Button color="inherit" component={RouterLink} to="/about" sx={{ mr: 2 }}>
+            About
+          </Button>
+          {isAuthenticated ? authLinks : guestLinks}
+        </Toolbar>
+      </AppBar>
+    </Box>
   );
 };
 
