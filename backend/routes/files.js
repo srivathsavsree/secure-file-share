@@ -12,11 +12,13 @@ const { sendDecryptionKey } = require('../utils/emailService');
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-        cb(null, 'uploads/');
+    cb(null, 'uploads/');
   },
   filename: function(req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    // Create unique filename while preserving original extension exactly
+    const uniqueId = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const originalExt = path.extname(file.originalname);
+    cb(null, uniqueId + originalExt);
   }
 });
 
@@ -61,10 +63,13 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
         // Generate encryption key
         const encryptionKey = crypto.randomBytes(32).toString('hex');
 
+        // Store original filename without any modifications
+        const originalName = req.file.originalname;
+
         // Create file record
         const file = new File({
             filename: req.file.filename,
-            originalName: req.file.originalname,
+            originalName: originalName, // Store exactly as received
             path: req.file.path,
             size: req.file.size,
             mimeType: req.file.mimetype,
@@ -78,7 +83,7 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
         // Generate QR code data
         const qrCodeData = JSON.stringify({
             fileId: file._id,
-            fileName: file.originalName
+            fileName: originalName
         });
 
         try {
@@ -87,7 +92,7 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
                 receiverEmail,
                 encryptionKey,
                 {
-                    fileName: file.originalName,
+                    fileName: originalName,
                     fileId: file._id
                 },
                 qrCodeData
@@ -200,10 +205,24 @@ router.post('/download/:id', auth, async (req, res) => {
         file.status = 'downloaded';
         await file.save();
 
-        // Send file
-        res.download(file.path, file.originalName);
+        // Get the file stats to set the correct content length
+        const stats = fs.statSync(file.path);
+
+        // Set response headers
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Content-Type', file.mimeType);
+        res.setHeader('Content-Disposition', 'attachment; filename=' + file.originalName);
+        
+        // Read and send the file directly
+        fs.createReadStream(file.path)
+            .on('error', (err) => {
+                console.error('Error streaming file:', err);
+                res.status(500).send('Error downloading file');
+            })
+            .pipe(res);
+
     } catch (err) {
-        console.error(err.message);
+        console.error('Download error:', err.message);
         res.status(500).send('Server error');
     }
 });
