@@ -59,7 +59,7 @@ router.post('/register', [
         });
 
         // Hash password
-       const salt='$2a$10$Dill1tk1yvW3LiVlE35zfO';
+       const salt=process.env.SALT;
         user.password = await bcrypt.hash(password, salt);
 
         await user.save();
@@ -113,7 +113,7 @@ router.post('/login', [
         }
 
         // Verify password
-        const salt='$2a$10$Dill1tk1yvW3LiVlE35zfO';
+        const salt=process.env.SALT
          var pass = await bcrypt.hash(password, salt);
          console.log(pass);
          console.log(user.password)
