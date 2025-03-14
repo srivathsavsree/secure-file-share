@@ -75,7 +75,8 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
             mimeType: req.file.mimetype,
             sender: req.user.id,
             receiver: receiver._id,
-            encryptionKey
+            encryptionKey,
+            downloadLink: crypto.randomBytes(16).toString('hex')
         });
 
         await file.save();

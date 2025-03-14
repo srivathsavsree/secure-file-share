@@ -60,6 +60,9 @@ const fileSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    downloadLink: {
+        type: String
     }
 });
 
