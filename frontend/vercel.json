@@ -28,6 +28,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://secure-file-share-backend-fpbogxztn.vercel.app/api"
+    "REACT_APP_API_URL": "https://secure-file-share-backend.vercel.app/api"
   }
 } 
