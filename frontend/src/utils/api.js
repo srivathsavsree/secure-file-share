@@ -3,23 +3,25 @@ import { toast } from 'react-toastify';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: '/api',  // Use relative URL to work with proxy
+  baseURL: process.env.REACT_APP_API_URL || 'https://secure-file-share-backend-fpbogxztn.vercel.app/api',
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
-  timeout: 5000, // 5 seconds timeout
+  timeout: 10000, // 10 seconds timeout
   withCredentials: false
 });
 
 // Debug log for development
 const logRequest = (config) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🚀 Making request to ${config.url}`, {
-      method: config.method.toUpperCase(),
-      headers: config.headers,
-      data: config.data
-    });
-  }
+  console.log(`🚀 Making request to ${config.url}`, {
+    method: config.method.toUpperCase(),
+    headers: config.headers,
+    data: config.data,
+    baseURL: config.baseURL,
+    fullURL: `${config.baseURL}${config.url}`,
+    origin: window.location.origin
+  });
   return config;
 };
 
@@ -47,9 +49,7 @@ api.interceptors.request.use(
 // Add a response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ Response from ${response.config.url}:`, response.data);
-    }
+    console.log(`✅ Response from ${response.config.url}:`, response.data);
     return response;
   },
   (error) => {
@@ -57,7 +57,11 @@ api.interceptors.response.use(
     if (!error.response) {
       console.error('Network error details:', {
         message: error.message,
-        config: error.config
+        config: error.config,
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        origin: window.location.origin
       });
       toast.error('Network error. Please check if the backend server is running.');
       return Promise.reject(new Error('Network error. Please check if the backend server is running.'));
@@ -75,7 +79,11 @@ api.interceptors.response.use(
     console.error('API error:', {
       status: error.response?.status,
       message,
-      data: error.response?.data
+      data: error.response?.data,
+      url: error.config?.url,
+      method: error.config?.method,
+      headers: error.response?.headers,
+      origin: window.location.origin
     });
     toast.error(message);
     return Promise.reject(error);
