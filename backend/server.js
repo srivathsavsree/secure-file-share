@@ -70,6 +70,7 @@ mongoose.connection.on('disconnected', () => {
 // Add request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    console.log('Request headers:', req.headers);
     next();
 });
 
