@@ -19,11 +19,18 @@ app.use((err, req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: [
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000',
+    'http://ecure-file-sharing-vathsav.s3-website.eu-west-2.amazonaws.com',
+    'https://ecure-file-sharing-vathsav.s3-website.eu-west-2.amazonaws.com',
+    'https://ecure-file-sharing-vathsav.s3.eu-west-2.amazonaws.com'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization', 'Accept'],
   exposedHeaders: ['x-auth-token'],
-  credentials: false
+  credentials: false,
+  maxAge: 86400 // 24 hours
 };
 
 // Middleware
