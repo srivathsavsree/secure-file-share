@@ -113,11 +113,10 @@ router.post('/login', [
         }
 
         // Verify password
-        const salt=process.env.SALT
-         var pass = await bcrypt.hash(password, salt);
-         console.log(pass);
-         console.log(user.password)
-        if (pass!=user.password) {
+        const salt = process.env.SALT;
+        const isMatch = await bcrypt.compare(password, user.password);
+        
+        if (!isMatch) {
             user.failedAttempts += 1;
             if (user.failedAttempts >= 100) {
                 user.isLocked = true;

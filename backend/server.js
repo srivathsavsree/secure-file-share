@@ -78,6 +78,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
 
+// Handle OPTIONS requests for all routes
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, Authorization, Accept');
+    res.header('Access-Control-Max-Age', '86400');
+    res.sendStatus(200);
+});
+
 const PORT = process.env.PORT || 5001;
 
 // Start server with error handling
