@@ -19,7 +19,7 @@ app.use((err, req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-  origin: *,
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization', 'Accept'],
   exposedHeaders: ['x-auth-token'],
