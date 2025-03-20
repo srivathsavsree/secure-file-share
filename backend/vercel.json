@@ -11,18 +11,6 @@
       "src": "/(.*)",
       "dest": "server.js"
     }
-  ],
-  "env": {
-    "PORT":5001,
-    "MONGODB_URI": "mongodb+srv://nagarajneelam:ghost@cluster0.bszay9z.mongodb.net/",
-    "JWT_SECRET": "sreeisagoodboynagisbadboyhasaholeasasizeofwell",
-    "ENCRYPTION_KEY": "abcdefghijklmnopqrstuvwxyzabcdef",
-    "SALT": "$2a$10$Dill1tk1yvW3LiVlE35zfO",
-    "EMAILJS_PUBLIC_KEY": "T_z8RyxEyiqJTD76a",
-    "EMAILJS_PRIVATE_KEY": "wWZUr_1CkUgzlocgY7CRE",
-    "EMAILJS_SERVICE_ID": "service_d29rviy",
-    "EMAILJS_TEMPLATE_ID": "template_1zk87sq",
-    "FRONTEND_URL": "http://ecure-file-sharing-vathsav.s3-website.eu-west-2.amazonaws.com"
-  }
+  ]
   
 } 
