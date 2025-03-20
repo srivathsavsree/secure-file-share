@@ -12,15 +12,5 @@
       "dest": "server.js"
     }
   ],
-  "env": {
-    "MONGODB_URI": "@mongodb_uri",
-    "JWT_SECRET": "@jwt_secret",
-    "ENCRYPTION_KEY": "@encryption_key",
-    "SALT": "@salt",
-    "EMAILJS_PUBLIC_KEY": "@emailjs_public_key",
-    "EMAILJS_PRIVATE_KEY": "@emailjs_private_key",
-    "EMAILJS_SERVICE_ID": "@emailjs_service_id",
-    "EMAILJS_TEMPLATE_ID": "@emailjs_template_id",
-    "FRONTEND_URL": "@frontend_url"
-  }
+  
 } 
