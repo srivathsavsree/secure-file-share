@@ -19,14 +19,7 @@ app.use((err, req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'http://localhost:3000', 
-    'http://127.0.0.1:3000',
-    'http://ecure-file-sharing-vathsav.s3-website.eu-west-2.amazonaws.com',
-    'https://ecure-file-sharing-vathsav.s3-website.eu-west-2.amazonaws.com',
-    'https://ecure-file-sharing-vathsav.s3.eu-west-2.amazonaws.com',
-    'https://ecure-file-sharing-vathsav.s3.eu-west-2.amazonaws.com/index.html'
-  ],
+  origin: [*],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization', 'Accept'],
   exposedHeaders: ['x-auth-token'],
@@ -94,13 +87,6 @@ const PORT = process.env.PORT || 5001;
 // Start server with error handling
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-}).on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Please try a different port or kill the process using this port.`);
-    } else {
-        console.error('Server error:', err);
-    }
-    process.exit(1);
 });
 
 // Handle process termination
