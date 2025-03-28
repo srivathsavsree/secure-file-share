@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:5001/api',
+  baseURL: 'https://securefileshare-backend.vercel.app/api',
   headers: {
     'Content-Type': 'application/json'
   }
