@@ -15,10 +15,12 @@ const app = express();
 app.use(cors({
     origin: [
         "https://secure-file-share-dun.vercel.app",
-        "https://securefileshare-backend.onrender.com"
+        "https://securefileshare-backend.onrender.com",
+        "http://localhost:3000"  // For local development
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-auth-token", "Accept"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
     credentials: true,
     maxAge: 86400 // 24 hours
 }));
