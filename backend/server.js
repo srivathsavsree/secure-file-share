@@ -12,7 +12,17 @@ const userRoutes = require('./routes/users');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        "https://secure-file-share-dun.vercel.app",
+        "https://securefileshare-backend.vercel.app",
+        "https://securefileshare-backend.onrender.com"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"],
+    credentials: true,
+    maxAge: 86400 // 24 hours
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
