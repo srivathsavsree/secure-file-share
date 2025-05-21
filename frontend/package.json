@@ -25,7 +25,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "vercel-build": "react-scripts build"
+    "vercel-build": "CI=false react-scripts build"
   },
   "eslintConfig": {
     "extends": [
@@ -45,7 +45,10 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:5001",
+ "options": {
+    "allowedHosts": ["localhost", ".localhost"],
+    "proxy": "https://securefileshare-backend.vercel.app/"
+  },
   "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
   "main": "index.js",
   "keywords": [],
