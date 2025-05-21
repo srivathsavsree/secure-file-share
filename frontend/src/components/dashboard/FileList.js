@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AlertContext } from '../../context/alert/alertContext';
+import api from '../../utils/api';
 import {
   Paper,
   Typography,
@@ -31,25 +32,15 @@ const FileList = () => {
 
   const fetchFiles = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'x-auth-token': token };
-
       // Fetch shared files
-      const sharedResponse = await fetch('/api/files/shared', { headers });
-      const sharedData = await sharedResponse.json();
-
+      const sharedResponse = await api.get('/files/shared');
       // Fetch received files
-      const receivedResponse = await fetch('/api/files/received', { headers });
-      const receivedData = await receivedResponse.json();
+      const receivedResponse = await api.get('/files/received');
 
-      if (!sharedResponse.ok || !receivedResponse.ok) {
-        throw new Error('Error fetching files');
-      }
-
-      setSharedFiles(sharedData);
-      setReceivedFiles(receivedData);
+      setSharedFiles(sharedResponse.data);
+      setReceivedFiles(receivedResponse.data);
     } catch (error) {
-      setAlert(error.message || 'Error fetching files', 'error');
+      setAlert(error.response?.data?.message || 'Error fetching files', 'error');
     } finally {
       setLoading(false);
     }
@@ -60,26 +51,14 @@ const FileList = () => {
       const decryptionKey = prompt('Please enter the decryption key:');
       if (!decryptionKey) return;
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/files/download/${fileId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token
-        },
-        body: JSON.stringify({ decryptionKey })
+      const response = await api.post(`/files/download/${fileId}`, { decryptionKey }, {
+        responseType: 'blob'
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Error downloading file');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'downloaded-file';
+      a.download = response.headers['content-disposition']?.split('filename=')[1] || 'downloaded-file';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -87,7 +66,7 @@ const FileList = () => {
 
       setAlert('File downloaded successfully', 'success');
     } catch (error) {
-      setAlert(error.message || 'Error downloading file', 'error');
+      setAlert(error.response?.data?.message || 'Error downloading file', 'error');
     }
   };
 
@@ -95,20 +74,11 @@ const FileList = () => {
     if (!window.confirm('Are you sure you want to delete this file?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/files/${fileId}`, {
-        method: 'DELETE',
-        headers: { 'x-auth-token': token }
-      });
-
-      if (!response.ok) {
-        throw new Error('Error deleting file');
-      }
-
+      await api.delete(`/files/${fileId}`);
       setSharedFiles(sharedFiles.filter(file => file._id !== fileId));
       setAlert('File deleted successfully', 'success');
     } catch (error) {
-      setAlert(error.message || 'Error deleting file', 'error');
+      setAlert(error.response?.data?.message || 'Error deleting file', 'error');
     }
   };
 
