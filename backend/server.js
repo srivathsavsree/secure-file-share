@@ -15,7 +15,6 @@ const app = express();
 app.use(cors({
     origin: [
         "https://secure-file-share-dun.vercel.app",
-        "https://securefileshare-backend.vercel.app",
         "https://securefileshare-backend.onrender.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
