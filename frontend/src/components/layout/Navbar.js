@@ -41,11 +41,11 @@ const Navbar = () => {
 
   const guestLinks = (
     <Box sx={{ display: 'flex', gap: 2 }}>
-      <Button color="inherit" component={RouterLink} to="/register">
-        Register
-      </Button>
       <Button color="inherit" component={RouterLink} to="/login">
-        Login
+        Sign In
+      </Button>
+      <Button color="inherit" component={RouterLink} to="/register">
+        Sign Up
       </Button>
     </Box>
   );
@@ -76,9 +76,6 @@ const Navbar = () => {
           >
             Secure File Share
           </Typography>
-          <Button color="inherit" component={RouterLink} to="/about" sx={{ mr: 2 }}>
-            About
-          </Button>
           {isAuthenticated ? authLinks : guestLinks}
         </Toolbar>
       </AppBar>
