@@ -18,6 +18,7 @@ import Alert from './components/layout/Alert';
 import PrivateRoute from './components/routing/PrivateRoute';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
+import FileDownload from './components/files/FileDownload';
 
 import { initializeAuth } from './utils/auth';
 
@@ -55,6 +56,7 @@ const App = () => {
                   <Route path="/dashboard" element={<PrivateRoute element={<Dashboard />} />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password/:token" element={<ResetPassword />} />
+                  <Route path="/download/:fileId" element={<FileDownload />} />
                 </Routes>
               </Container>
             </Box>

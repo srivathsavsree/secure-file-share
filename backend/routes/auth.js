@@ -1,12 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const crypto = require('crypto');
-const { sendEmail } = require('../utils/emailService');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 
 // @route   GET api/auth/test
 // @desc    Test route
@@ -183,11 +182,7 @@ router.post('/forgot-password', async (req, res) => {
         await user.save();
         // Send email
         const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
-        await sendEmail(
-            user.email,
-            'Password Reset Request',
-            `You requested a password reset. Click the link to reset your password: ${resetUrl}\nIf you did not request this, please ignore this email.`
-        );
+        await sendPasswordResetEmail(user.email, resetUrl);
         res.json({ message: 'Password reset email sent.' });
     } catch (err) {
         console.error(err);

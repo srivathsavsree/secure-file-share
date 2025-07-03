@@ -4,10 +4,11 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const QRCode = require('qrcode');
 const auth = require('../middleware/auth');
 const File = require('../models/File');
 const User = require('../models/User');
-const { sendDecryptionKey } = require('../utils/emailService');
+const { sendFileShareEmail } = require('../utils/emailService');
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -82,18 +83,23 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
         await file.save();
 
         // Generate direct download URL for QR code and email
-        const downloadUrl = `${process.env.FRONTEND_URL}/api/files/download/${file._id}`;
+        const downloadUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/download/${file._id}`;
 
         try {
-            // Send email with decryption key and QR code (direct download)
-            await sendDecryptionKey(
+            // Generate QR code for the download URL
+            const qrCodeDataUrl = await QRCode.toDataURL(downloadUrl);
+            
+            // Get sender info
+            const sender = await User.findById(req.user.id).select('name');
+            
+            // Send email with decryption key and QR code
+            await sendFileShareEmail(
                 receiverEmail,
+                sender.name,
+                originalName,
+                downloadUrl,
                 encryptionKey,
-                {
-                    fileName: originalName,
-                    fileId: file._id
-                },
-                downloadUrl
+                qrCodeDataUrl
             );
         } catch (emailError) {
             console.error('Error sending email:', emailError);
@@ -250,6 +256,36 @@ router.delete('/:id', auth, async (req, res) => {
             await file.deleteOne();
             res.json({ message: 'File deleted' });
         });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// @route   GET api/files/info/:id
+// @desc    Get file info for download page
+// @access  Private
+router.get('/info/:id', auth, async (req, res) => {
+    try {
+        const file = await File.findById(req.params.id)
+            .populate('sender', 'name email')
+            .select('-encryptionKey'); // Don't send the encryption key
+        
+        if (!file) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        // Check if user is the receiver
+        if (file.receiver.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        // Check if file is still available
+        if (file.isDestroyed || file.status === 'expired') {
+            return res.status(400).json({ message: 'File is no longer available' });
+        }
+
+        res.json(file);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
