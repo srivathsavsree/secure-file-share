@@ -58,8 +58,13 @@ router.post('/register', [
             privateKey
         });
 
+        console.log(`Registering user: ${email}`);
+        console.log(`Plain password length: ${password.length}`);
+
         // No manual hash here; pre-save hook will hash password
         await user.save();
+
+        console.log(`User saved with hashed password: ${user.password.substring(0, 20)}...`);
 
         // Create and return JWT token
         const payload = {
@@ -101,16 +106,24 @@ router.post('/login', [
         // Check if user exists
         let user = await User.findOne({ email });
         if (!user) {
+            console.log(`Login attempt failed: User not found for email: ${email}`);
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        console.log(`Login attempt for user: ${email}`);
+        console.log(`User found: ${user._id}`);
+        console.log(`Password hash in DB: ${user.password.substring(0, 20)}...`);
+
         // Check if account is locked
         if (user.isLocked) {
+            console.log(`Login failed: Account locked for ${email}`);
             return res.status(403).json({ message: 'Account is locked. Please contact support.' });
         }
 
         // Verify password
+        console.log(`Attempting password comparison for ${email}`);
         const isMatch = await user.comparePassword(password);
+        console.log(`Password comparison result: ${isMatch}`);
         
         if (!isMatch) {
             user.failedAttempts += 1;
