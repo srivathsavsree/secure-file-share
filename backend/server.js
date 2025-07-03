@@ -14,8 +14,7 @@ const app = express();
 // Middleware
 app.use(cors({
     origin: [
-        "https://secure-file-share-dun.vercel.app",
-        "https://secure-file-share-gg66tfz1m.vercel.app",
+        "https://secure-file-share-dun.vercel.app",    // Primary Vercel domain
         "https://securefileshare-backend.onrender.com",
         "http://localhost:3000"  // For local development
     ],
