@@ -41,4 +41,4 @@ async function clearDatabase() {
 }
 
 // Uncomment the line below to run the cleanup
-// clearDatabase(); 
+clearDatabase();

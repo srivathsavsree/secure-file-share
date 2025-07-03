@@ -1,295 +1,441 @@
 const express = require('express');
-const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const crypto = require('crypto');
 const fs = require('fs');
-const QRCode = require('qrcode');
-const auth = require('../middleware/auth');
+const crypto = require('crypto');
+const { auth } = require('../middleware/auth');
 const File = require('../models/File');
 const User = require('../models/User');
-const { sendFileShareEmail } = require('../utils/emailService');
+const { encryptFile, decryptFile, generateToken } = require('../utils/encryption');
+const { sendFileShareNotification } = require('../utils/emailService');
 
-// Configure multer for file upload
+const router = express.Router();
+
+// Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, 'uploads/');
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
   },
-  filename: function(req, file, cb) {
-    // Create unique filename while preserving original extension exactly
-    const uniqueId = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const originalExt = path.extname(file.originalname);
-    cb(null, uniqueId + originalExt);
+  filename: (req, file, cb) => {
+    // Generate unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${extension}`);
   }
 });
 
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 1000 * 1024 * 1024 }, // 10MB limit
-    fileFilter: (req, file, cb) => {
-        // Add file type restrictions if needed
-        cb(null, true);
-    }
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Add any file type restrictions here if needed
+    cb(null, true);
+  }
 });
 
-// @route   POST api/files/upload
-// @desc    Upload and encrypt a file
+// @route   POST /api/files/upload
+// @desc    Upload a file
 // @access  Private
-router.post('/upload', [auth, upload.single('file')], async (req, res) => {
-    try {
-        console.log('File upload request received:', {
-            file: req.file,
-            body: req.body,
-            headers: req.headers
-        });
-
-        if (!req.file) {
-            console.error('No file in request');
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-
-        const { receiverEmail } = req.body;
-        if (!receiverEmail) {
-            console.error('No receiver email provided');
-            return res.status(400).json({ message: 'Receiver email is required' });
-        }
-
-        // Find receiver
-        const receiver = await User.findOne({ email: receiverEmail });
-        if (!receiver) {
-            console.error(`Receiver not found for email: ${receiverEmail}`);
-            return res.status(400).json({ message: 'Receiver not found' });
-        }
-
-        // Generate encryption key
-        const encryptionKey = crypto.randomBytes(32).toString('hex');
-
-        // Store original filename without any modifications
-        const originalName = req.file.originalname;
-
-        // Create file record
-        const file = new File({
-            filename: req.file.filename,
-            originalName: originalName, // Store exactly as received
-            path: req.file.path,
-            size: req.file.size,
-            mimeType: req.file.mimetype,
-            sender: req.user.id,
-            receiver: receiver._id,
-            encryptionKey,
-            downloadLink: crypto.randomBytes(16).toString('hex')
-        });
-
-        await file.save();
-
-        // Generate direct download URL for QR code and email
-        const downloadUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/download/${file._id}`;
-
-        try {
-            // Generate QR code for the download URL
-            const qrCodeDataUrl = await QRCode.toDataURL(downloadUrl);
-            
-            // Get sender info
-            const sender = await User.findById(req.user.id).select('name');
-            
-            // Send email with decryption key and QR code
-            await sendFileShareEmail(
-                receiverEmail,
-                sender.name,
-                originalName,
-                downloadUrl,
-                encryptionKey,
-                qrCodeDataUrl
-            );
-        } catch (emailError) {
-            console.error('Error sending email:', emailError);
-            // Delete the uploaded file and file record if email fails
-            fs.unlink(file.path, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-            await file.deleteOne();
-            return res.status(500).json({ 
-                message: 'Error sending email. Please check your SendGrid configuration.',
-                error: emailError.message
-            });
-        }
-
-        res.json({
-            message: 'File uploaded and shared successfully',
-            fileId: file._id
-        });
-    } catch (err) {
-        console.error('File upload error:', err);
-        if (req.file) {
-            // Clean up uploaded file if there's an error
-            fs.unlink(req.file.path, (unlinkErr) => {
-                if (unlinkErr) console.error('Error deleting file:', unlinkErr);
-            });
-        }
-        res.status(500).json({ 
-            message: 'Server error during file upload',
-            error: err.message
-        });
+router.post('/upload', auth, upload.single('file'), async (req, res) => {
+  try {
+    console.log('File upload attempt by user:', req.user.email);
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
     }
+
+    console.log('File received:', {
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      filename: req.file.filename
+    });
+
+    // Encrypt file if enabled
+    let finalPath = req.file.path;
+    let isEncrypted = false;
+
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const encryptedBuffer = encryptFile(fileBuffer);
+      
+      // Save encrypted file
+      const encryptedPath = req.file.path + '.enc';
+      fs.writeFileSync(encryptedPath, encryptedBuffer);
+      
+      // Remove original file
+      fs.unlinkSync(req.file.path);
+      
+      finalPath = encryptedPath;
+      isEncrypted = true;
+      console.log('File encrypted successfully');
+    } catch (encryptionError) {
+      console.error('File encryption failed:', encryptionError);
+      // Continue with unencrypted file
+    }
+
+    // Create file record
+    const fileRecord = new File({
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: finalPath,
+      uploadedBy: req.user.id,
+      description: req.body.description || '',
+      isPublic: req.body.isPublic === 'true',
+      isEncrypted: isEncrypted
+    });
+
+    await fileRecord.save();
+    console.log('File record saved with ID:', fileRecord._id);
+
+    // Populate user info
+    await fileRecord.populate('uploadedBy', 'name email');
+
+    res.status(201).json({
+      message: 'File uploaded successfully',
+      file: fileRecord
+    });
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    
+    // Clean up uploaded file if error occurs
+    if (req.file && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('Error cleaning up file:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ 
+      message: 'Error uploading file', 
+      error: error.message 
+    });
+  }
 });
 
-// @route   GET api/files/shared
-// @desc    Get list of files shared by user
+// @route   GET /api/files
+// @desc    Get user's files
 // @access  Private
-router.get('/shared', auth, async (req, res) => {
-    try {
-        const files = await File.find({ sender: req.user.id })
-            .populate('receiver', 'name email')
-            .select('-encryptionKey');
-        res.json(files);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
+router.get('/', auth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get user's own files and files shared with them
+    const userFiles = await File.find({ uploadedBy: req.user.id })
+      .populate('uploadedBy', 'name email')
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const sharedFiles = await File.find({ 
+      'sharedWith.user': req.user.id 
+    })
+      .populate('uploadedBy', 'name email')
+      .populate('sharedWith.user', 'name email')
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalUserFiles = await File.countDocuments({ uploadedBy: req.user.id });
+    const totalSharedFiles = await File.countDocuments({ 'sharedWith.user': req.user.id });
+
+    res.json({
+      userFiles,
+      sharedFiles,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil((totalUserFiles + totalSharedFiles) / limit),
+        totalFiles: totalUserFiles + totalSharedFiles,
+        hasMore: skip + limit < totalUserFiles + totalSharedFiles
+      }
+    });
+
+  } catch (error) {
+    console.error('Get files error:', error);
+    res.status(500).json({ message: 'Error retrieving files' });
+  }
 });
 
-// @route   GET api/files/received
-// @desc    Get list of files received by user
+// @route   GET /api/files/public
+// @desc    Get public files
+// @access  Public
+router.get('/public', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const files = await File.find({ isPublic: true })
+      .populate('uploadedBy', 'name email')
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await File.countDocuments({ isPublic: true });
+
+    res.json({
+      files,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalFiles: total,
+        hasMore: skip + limit < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Get public files error:', error);
+    res.status(500).json({ message: 'Error retrieving public files' });
+  }
+});
+
+// @route   GET /api/files/:id
+// @desc    Get file details
 // @access  Private
-router.get('/received', auth, async (req, res) => {
-    try {
-        const files = await File.find({ 
-            receiver: req.user.id,
-            isDestroyed: false,
-            status: { $ne: 'expired' }
-        }).populate('sender', 'name email');
-        res.json(files);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id)
+      .populate('uploadedBy', 'name email')
+      .populate('sharedWith.user', 'name email');
+
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
     }
+
+    // Check if user can access this file
+    if (!file.canUserAccess(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    res.json({ file });
+
+  } catch (error) {
+    console.error('Get file details error:', error);
+    res.status(500).json({ message: 'Error retrieving file details' });
+  }
 });
 
-// @route   POST api/files/download/:id
+// @route   GET /api/files/:id/download
 // @desc    Download a file
 // @access  Private
-router.post('/download/:id', auth, async (req, res) => {
-    try {
-        const file = await File.findById(req.params.id);
-        
-        if (!file) {
-            return res.status(404).json({ message: 'File not found' });
-        }
+router.get('/:id/download', auth, async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id);
 
-        // Check if user is the receiver
-        if (file.receiver.toString() !== req.user.id) {
-            return res.status(403).json({ message: 'Not authorized' });
-        }
-
-        // Check if file is destroyed or expired
-        if (file.isDestroyed || file.status === 'expired') {
-            return res.status(400).json({ message: 'File is no longer available' });
-        }
-
-        // Verify decryption key
-        const { decryptionKey } = req.body;
-        if (decryptionKey !== file.encryptionKey) {
-            file.downloadAttempts += 1;
-            
-            if (file.downloadAttempts >= file.maxAttempts) {
-                file.isDestroyed = true;
-                file.status = 'destroyed';
-                await file.save();
-                return res.status(400).json({ message: 'File has been destroyed due to too many failed attempts' });
-            }
-            
-            await file.save();
-            return res.status(400).json({ 
-                message: 'Invalid decryption key',
-                attemptsLeft: file.maxAttempts - file.downloadAttempts
-            });
-        }
-
-        // Update file status
-        file.status = 'downloaded';
-        await file.save();
-
-        // Get the file stats to set the correct content length
-        const stats = fs.statSync(file.path);
-
-        // Set response headers
-        res.setHeader('Content-Length', stats.size);
-        res.setHeader('Content-Type', file.mimeType);
-        res.setHeader('Content-Disposition', 'attachment; filename=' + file.originalName);
-        
-        // Read and send the file directly
-        fs.createReadStream(file.path)
-            .on('error', (err) => {
-                console.error('Error streaming file:', err);
-                res.status(500).send('Error downloading file');
-            })
-            .pipe(res);
-
-    } catch (err) {
-        console.error('Download error:', err.message);
-        res.status(500).send('Server error');
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
     }
+
+    // Check if user can access this file
+    if (!file.canUserAccess(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Check if file exists on disk
+    if (!fs.existsSync(file.path)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+
+    // Update download count
+    file.downloadCount += 1;
+    file.lastDownloaded = new Date();
+    await file.save();
+
+    let fileBuffer;
+
+    try {
+      // Read and decrypt file if encrypted
+      if (file.isEncrypted) {
+        const encryptedBuffer = fs.readFileSync(file.path);
+        fileBuffer = decryptFile(encryptedBuffer);
+      } else {
+        fileBuffer = fs.readFileSync(file.path);
+      }
+    } catch (decryptionError) {
+      console.error('File decryption error:', decryptionError);
+      return res.status(500).json({ message: 'Error processing file' });
+    }
+
+    // Set headers for file download
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalname}"`);
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Content-Length', fileBuffer.length);
+
+    console.log(`File downloaded: ${file.originalname} by ${req.user.email}`);
+    res.send(fileBuffer);
+
+  } catch (error) {
+    console.error('File download error:', error);
+    res.status(500).json({ message: 'Error downloading file' });
+  }
 });
 
-// @route   DELETE api/files/:id
+// @route   POST /api/files/:id/share
+// @desc    Share a file with another user
+// @access  Private
+router.post('/:id/share', auth, async (req, res) => {
+  try {
+    const { email, permission = 'view' } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const file = await File.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Check if user owns this file
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only share your own files' });
+    }
+
+    // Find user to share with
+    const userToShareWith = await User.findOne({ email: email.toLowerCase() });
+
+    if (!userToShareWith) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if already shared
+    const alreadyShared = file.sharedWith.some(
+      share => share.user.toString() === userToShareWith._id.toString()
+    );
+
+    if (alreadyShared) {
+      return res.status(400).json({ message: 'File already shared with this user' });
+    }
+
+    // Add to shared list
+    file.sharedWith.push({
+      user: userToShareWith._id,
+      permission: permission,
+      sharedAt: new Date()
+    });
+
+    await file.save();
+
+    // Send notification email
+    try {
+      await sendFileShareNotification(
+        userToShareWith.email,
+        userToShareWith.name,
+        file.originalname,
+        req.user.name
+      );
+    } catch (emailError) {
+      console.error('Error sending share notification:', emailError);
+    }
+
+    console.log(`File shared: ${file.originalname} with ${userToShareWith.email}`);
+
+    res.json({
+      message: 'File shared successfully',
+      sharedWith: {
+        user: {
+          id: userToShareWith._id,
+          name: userToShareWith.name,
+          email: userToShareWith.email
+        },
+        permission: permission
+      }
+    });
+
+  } catch (error) {
+    console.error('File share error:', error);
+    res.status(500).json({ message: 'Error sharing file' });
+  }
+});
+
+// @route   DELETE /api/files/:id
 // @desc    Delete a file
 // @access  Private
 router.delete('/:id', auth, async (req, res) => {
-    try {
-        const file = await File.findById(req.params.id);
-        
-        if (!file) {
-            return res.status(404).json({ message: 'File not found' });
-        }
+  try {
+    const file = await File.findById(req.params.id);
 
-        // Check if user is the sender
-        if (file.sender.toString() !== req.user.id) {
-            return res.status(403).json({ message: 'Not authorized' });
-        }
-
-        // Delete file from storage
-        fs.unlink(file.path, async (err) => {
-            if (err) {
-                console.error('Error deleting file:', err);
-            }
-            // Delete file record regardless of physical file deletion
-            await file.deleteOne();
-            res.json({ message: 'File deleted' });
-        });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
     }
+
+    // Check if user owns this file
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only delete your own files' });
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(file.path)) {
+      try {
+        fs.unlinkSync(file.path);
+        console.log('File deleted from disk:', file.path);
+      } catch (fileError) {
+        console.error('Error deleting file from disk:', fileError);
+      }
+    }
+
+    // Delete from database
+    await File.findByIdAndDelete(req.params.id);
+
+    console.log(`File deleted: ${file.originalname} by ${req.user.email}`);
+
+    res.json({ message: 'File deleted successfully' });
+
+  } catch (error) {
+    console.error('File delete error:', error);
+    res.status(500).json({ message: 'Error deleting file' });
+  }
 });
 
-// @route   GET api/files/info/:id
-// @desc    Get file info for download page
+// @route   PUT /api/files/:id
+// @desc    Update file details
 // @access  Private
-router.get('/info/:id', auth, async (req, res) => {
-    try {
-        const file = await File.findById(req.params.id)
-            .populate('sender', 'name email')
-            .select('-encryptionKey'); // Don't send the encryption key
-        
-        if (!file) {
-            return res.status(404).json({ message: 'File not found' });
-        }
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { description, isPublic } = req.body;
 
-        // Check if user is the receiver
-        if (file.receiver.toString() !== req.user.id) {
-            return res.status(403).json({ message: 'Not authorized' });
-        }
+    const file = await File.findById(req.params.id);
 
-        // Check if file is still available
-        if (file.isDestroyed || file.status === 'expired') {
-            return res.status(400).json({ message: 'File is no longer available' });
-        }
-
-        res.json(file);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
     }
+
+    // Check if user owns this file
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only update your own files' });
+    }
+
+    // Update fields
+    if (description !== undefined) file.description = description;
+    if (isPublic !== undefined) file.isPublic = isPublic;
+
+    await file.save();
+
+    // Populate user info
+    await file.populate('uploadedBy', 'name email');
+
+    res.json({
+      message: 'File updated successfully',
+      file
+    });
+
+  } catch (error) {
+    console.error('File update error:', error);
+    res.status(500).json({ message: 'Error updating file' });
+  }
 });
 
 module.exports = router;

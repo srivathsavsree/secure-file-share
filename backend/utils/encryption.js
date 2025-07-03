@@ -1,66 +1,74 @@
-const CryptoJS = require('crypto-js');
-const fs = require('fs-extra');
-const path = require('path');
-require('dotenv').config();
+const crypto = require('crypto');
 
-// Get encryption key from environment variables
-const encryptionKey = process.env.ENCRYPTION_KEY;
+const algorithm = 'aes-256-cbc';
+const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 
-// Encrypt a file
-const encryptFile = async (filePath, destinationPath) => {
+const encrypt = (text) => {
   try {
-    // Read the file
-    const fileData = await fs.readFile(filePath);
-    
-    // Convert to WordArray (required for CryptoJS)
-    const wordArray = CryptoJS.lib.WordArray.create(fileData);
-    
-    // Encrypt the file data
-    const encrypted = CryptoJS.AES.encrypt(wordArray, encryptionKey).toString();
-    
-    // Write the encrypted data to the destination
-    await fs.writeFile(destinationPath, encrypted);
-    
-    return true;
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher(algorithm, key);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted;
   } catch (error) {
     console.error('Encryption error:', error);
-    return false;
+    throw new Error('Failed to encrypt data');
   }
 };
 
-// Decrypt a file
-const decryptFile = async (encryptedFilePath, destinationPath) => {
+const decrypt = (text) => {
   try {
-    // Read the encrypted file
-    const encryptedData = await fs.readFile(encryptedFilePath, 'utf8');
-    
-    // Decrypt the data
-    const decrypted = CryptoJS.AES.decrypt(encryptedData, encryptionKey);
-    
-    // Convert to bytes
-    const decryptedBytes = decrypted.toString(CryptoJS.enc.Base64);
-    
-    // Convert Base64 to Buffer
-    const buffer = Buffer.from(decryptedBytes, 'base64');
-    
-    // Write the decrypted data to the destination
-    await fs.writeFile(destinationPath, buffer);
-    
-    return true;
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = textParts.join(':');
+    const decipher = crypto.createDecipher(algorithm, key);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   } catch (error) {
     console.error('Decryption error:', error);
-    return false;
+    throw new Error('Failed to decrypt data');
   }
 };
 
-// Generate a random download link
-const generateDownloadLink = () => {
-  const randomBytes = CryptoJS.lib.WordArray.random(16);
-  return randomBytes.toString(CryptoJS.enc.Hex);
+const encryptFile = (buffer) => {
+  try {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher(algorithm, key);
+    const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+    return Buffer.concat([iv, encrypted]);
+  } catch (error) {
+    console.error('File encryption error:', error);
+    throw new Error('Failed to encrypt file');
+  }
+};
+
+const decryptFile = (encryptedBuffer) => {
+  try {
+    const iv = encryptedBuffer.slice(0, 16);
+    const encrypted = encryptedBuffer.slice(16);
+    const decipher = crypto.createDecipher(algorithm, key);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted;
+  } catch (error) {
+    console.error('File decryption error:', error);
+    throw new Error('Failed to decrypt file');
+  }
+};
+
+const generateToken = (length = 32) => {
+  return crypto.randomBytes(length).toString('hex');
+};
+
+const hashData = (data) => {
+  return crypto.createHash('sha256').update(data).digest('hex');
 };
 
 module.exports = {
+  encrypt,
+  decrypt,
   encryptFile,
   decryptFile,
-  generateDownloadLink
+  generateToken,
+  hashData
 };

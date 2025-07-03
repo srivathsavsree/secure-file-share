@@ -1,156 +1,180 @@
 const sgMail = require('@sendgrid/mail');
-require('dotenv').config();
 
-// Set SendGrid API Key
+// Set SendGrid API key
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-/**
- * Send an email using SendGrid
- * @param {string} to - Recipient email address
- * @param {string} subject - Email subject
- * @param {string} text - Plain text content
- * @param {string} html - HTML content (optional)
- */
-const sendEmail = async (to, subject, text, html = null) => {
+const sendEmail = async (to, subject, html, text = null) => {
   try {
+    console.log(`Attempting to send email to: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Using SendGrid API key: ${process.env.SENDGRID_API_KEY ? 'Set' : 'Not set'}`);
+    console.log(`From email: ${process.env.SENDGRID_SENDER}`);
+
     const msg = {
-      to,
-      from: process.env.SENDGRID_SENDER, // Verified sender email
-      subject,
-      text,
-      ...(html && { html })
+      to: to,
+      from: process.env.SENDGRID_SENDER,
+      subject: subject,
+      html: html,
+      text: text || html.replace(/<[^>]*>/g, '') // Strip HTML for text version
     };
 
-    await sgMail.send(msg);
-    console.log(`Email sent successfully to ${to}`);
-    return { success: true };
+    const result = await sgMail.send(msg);
+    console.log('Email sent successfully:', result[0].statusCode);
+    return { success: true, messageId: result[0].headers['x-message-id'] };
   } catch (error) {
-    console.error('SendGrid email error:', error);
+    console.error('SendGrid Error:', error);
     if (error.response) {
-      console.error('SendGrid error details:', error.response.body);
+      console.error('Error body:', error.response.body);
     }
-    throw new Error('Failed to send email');
+    return { success: false, error: error.message };
   }
 };
 
-/**
- * Send password reset email
- * @param {string} email - User's email
- * @param {string} resetUrl - Password reset URL
- */
-const sendPasswordResetEmail = async (email, resetUrl) => {
-  const subject = 'Password Reset Request - Secure File Share';
-  const text = `
-You requested a password reset for your Secure File Share account.
-
-Click the link below to reset your password:
-${resetUrl}
-
-This link will expire in 1 hour.
-
-If you did not request this password reset, please ignore this email.
-
-Best regards,
-Secure File Share Team
-  `;
+const sendVerificationEmail = async (email, name, verificationToken) => {
+  const subject = 'Verify Your Email - Secure File Share';
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
   
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1976d2;">Password Reset Request</h2>
-      <p>You requested a password reset for your Secure File Share account.</p>
-      <p>Click the button below to reset your password:</p>
-      <a href="${resetUrl}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">Reset Password</a>
-      <p><strong>This link will expire in 1 hour.</strong></p>
-      <p>If you did not request this password reset, please ignore this email.</p>
-      <hr style="margin: 20px 0;">
-      <p style="color: #666; font-size: 14px;">Best regards,<br>Secure File Share Team</p>
-    </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Email Verification</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .button { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { padding: 20px; text-align: center; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome to Secure File Share!</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${name}!</h2>
+          <p>Thank you for registering with Secure File Share. To complete your registration, please verify your email address by clicking the button below:</p>
+          <div style="text-align: center;">
+            <a href="${verificationUrl}" class="button">Verify Email Address</a>
+          </div>
+          <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 4px;">${verificationUrl}</p>
+          <p><strong>This verification link will expire in 24 hours.</strong></p>
+          <p>If you didn't create an account with us, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>© 2025 Secure File Share. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
   `;
 
-  return sendEmail(email, subject, text, html);
+  return await sendEmail(email, subject, html);
 };
 
-/**
- * Send file sharing notification email with QR code
- * @param {string} recipientEmail - Recipient's email
- * @param {string} senderName - Sender's name
- * @param {string} fileName - Name of the file
- * @param {string} downloadUrl - Download URL
- * @param {string} decryptionKey - Decryption key
- * @param {string} qrCodeDataUrl - QR code as data URL (optional)
- */
-const sendFileShareEmail = async (recipientEmail, senderName, fileName, downloadUrl, decryptionKey, qrCodeDataUrl = null) => {
-  const subject = `${senderName} shared a file with you - Secure File Share`;
+const sendPasswordResetEmail = async (email, name, resetToken) => {
+  const subject = 'Reset Your Password - Secure File Share';
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
   
-  const text = `
-${senderName} has shared a secure file with you: "${fileName}"
-
-Download Link: ${downloadUrl}
-Decryption Key: ${decryptionKey}
-
-IMPORTANT:
-- This file will expire in 24 hours
-- You have a maximum of 3 download attempts
-- Keep the decryption key safe - you'll need it to open the file
-
-To download:
-1. Click the download link above
-2. Enter the decryption key when prompted
-3. Save the decrypted file
-
-Best regards,
-Secure File Share Team
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Reset</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .button { display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { padding: 20px; text-align: center; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${name}!</h2>
+          <p>You have requested to reset your password for your Secure File Share account. Click the button below to reset your password:</p>
+          <div style="text-align: center;">
+            <a href="${resetUrl}" class="button">Reset Password</a>
+          </div>
+          <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 4px;">${resetUrl}</p>
+          <p><strong>This reset link will expire in 1 hour.</strong></p>
+          <p>If you didn't request this password reset, please ignore this email and your password will remain unchanged.</p>
+        </div>
+        <div class="footer">
+          <p>© 2025 Secure File Share. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
   `;
 
-  let html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1976d2;">New Secure File Shared</h2>
-      <p><strong>${senderName}</strong> has shared a secure file with you:</p>
-      <div style="background-color: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <h3 style="margin: 0; color: #333;">📁 ${fileName}</h3>
+  return await sendEmail(email, subject, html);
+};
+
+const sendFileShareNotification = async (email, name, fileName, sharedBy) => {
+  const subject = 'File Shared With You - Secure File Share';
+  const loginUrl = `${process.env.FRONTEND_URL}/login`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>File Shared</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .button { display: inline-block; padding: 12px 24px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { padding: 20px; text-align: center; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>File Shared With You!</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${name}!</h2>
+          <p><strong>${sharedBy}</strong> has shared a file with you on Secure File Share:</p>
+          <div style="background: #e9ecef; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <h3 style="margin: 0; color: #007bff;">📁 ${fileName}</h3>
+          </div>
+          <p>Log in to your account to access this file:</p>
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Access File</a>
+          </div>
+          <p>If you don't have an account, you can register at: <a href="${process.env.FRONTEND_URL}/register">${process.env.FRONTEND_URL}/register</a></p>
+        </div>
+        <div class="footer">
+          <p>© 2025 Secure File Share. All rights reserved.</p>
+        </div>
       </div>
-      
-      <div style="margin: 20px 0;">
-        <a href="${downloadUrl}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Download File</a>
-      </div>
-      
-      <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🔑 Decryption Key:</h4>
-        <code style="background-color: #f8f9fa; padding: 8px; border-radius: 4px; font-family: monospace; word-break: break-all;">${decryptionKey}</code>
-      </div>
+    </body>
+    </html>
   `;
 
-  if (qrCodeDataUrl) {
-    html += `
-      <div style="text-align: center; margin: 20px 0;">
-        <h4>📱 Quick Download (Scan QR Code)</h4>
-        <img src="${qrCodeDataUrl}" alt="QR Code for quick download" style="max-width: 200px;">
-        <p style="font-size: 14px; color: #666;">Scan with your phone to download directly</p>
-      </div>
-    `;
-  }
-
-  html += `
-      <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <h4 style="margin-top: 0; color: #0c5460;">⚠️ Important Security Information:</h4>
-        <ul style="margin: 0; padding-left: 20px; color: #0c5460;">
-          <li>This file will expire in <strong>24 hours</strong></li>
-          <li>You have a maximum of <strong>3 download attempts</strong></li>
-          <li>Keep the decryption key safe - you'll need it to open the file</li>
-          <li>This email is sent from a secure system</li>
-        </ul>
-      </div>
-      
-      <hr style="margin: 20px 0;">
-      <p style="color: #666; font-size: 14px;">Best regards,<br>Secure File Share Team</p>
-    </div>
-  `;
-
-  return sendEmail(recipientEmail, subject, text, html);
+  return await sendEmail(email, subject, html);
 };
 
 module.exports = {
   sendEmail,
+  sendVerificationEmail,
   sendPasswordResetEmail,
-  sendFileShareEmail
+  sendFileShareNotification
 };

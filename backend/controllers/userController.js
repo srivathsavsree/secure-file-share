@@ -1,103 +1,157 @@
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const User = require('../models/User');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const { generateToken } = require('../utils/encryption');
 
-// Register a new user
-exports.registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+// Register user
+const registerUser = async (req, res) => {
   try {
-    // Check if user already exists
-    let user = await User.findOne({ email });
-    
-    if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+    const { name, email, password } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    // Create new user
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (user) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+
+    // Generate verification token
+    const verificationToken = generateToken();
+
+    // Create user
     user = new User({
-      name,
-      email,
-      password
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: password,
+      verificationToken,
+      isVerified: false
     });
 
-    // Save user to database (password will be hashed by pre-save hook)
     await user.save();
 
-    // Create JWT payload
+    // Send verification email
+    const emailResult = await sendVerificationEmail(user.email, user.name, verificationToken);
+
+    // Generate JWT token
     const payload = {
       user: {
-        id: user.id,
-        role: user.role
+        id: user.id
       }
     };
 
-    // Sign token
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    res.status(201).json({
+      message: 'User registered successfully. Please check your email to verify your account.',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isVerified: user.isVerified
+      },
+      emailSent: emailResult.success
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      message: 'Server error during registration', 
+      error: error.message 
+    });
   }
 };
 
 // Login user
-exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
+const loginUser = async (req, res) => {
   try {
-    // Check if user exists
-    const user = await User.findOne({ email });
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
     
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
     
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Create JWT payload
+    // Check if email is verified
+    if (!user.isVerified) {
+      return res.status(400).json({ 
+        message: 'Please verify your email before logging in',
+        needsVerification: true
+      });
+    }
+
+    // Generate JWT token
     const payload = {
       user: {
-        id: user.id,
-        role: user.role
+        id: user.id
       }
     };
 
-    // Sign token
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isVerified: user.isVerified
       }
-    );
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'Server error during login', 
+      error: error.message 
+    });
   }
 };
 
 // Get current user
-exports.getCurrentUser = async (req, res) => {
+const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.json({
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        isVerified: req.user.isVerified,
+        createdAt: req.user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ message: 'Server error getting user info' });
   }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  getCurrentUser
 };

@@ -1,179 +1,289 @@
-const File = require('../models/File');
-const { encryptFile, decryptFile, generateDownloadLink } = require('../utils/encryption');
-const fs = require('fs-extra');
+const multer = require('multer');
 const path = require('path');
-const crypto = require('crypto');
+const fs = require('fs');
+const File = require('../models/File');
+const User = require('../models/User');
+const { encryptFile, decryptFile } = require('../utils/encryption');
+const { sendFileShareNotification } = require('../utils/emailService');
 
-// Upload a file
-exports.uploadFile = async (req, res) => {
+// Upload file
+const uploadFile = async (req, res) => {
   try {
-    // Check if file was uploaded
     if (!req.file) {
-      return res.status(400).json({ msg: 'No file uploaded' });
+      return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Generate a unique filename
-    const fileId = crypto.randomBytes(16).toString('hex');
-    const fileExtension = path.extname(req.file.originalname);
-    const filename = `${fileId}${fileExtension}`;
-    
-    // Paths for original and encrypted files
-    const originalPath = req.file.path;
-    const encryptedPath = path.join(__dirname, '..', 'uploads', 'encrypted', filename);
+    // Encrypt file if enabled
+    let finalPath = req.file.path;
+    let isEncrypted = false;
 
-    // Ensure encrypted directory exists
-    await fs.ensureDir(path.dirname(encryptedPath));
-
-    // Encrypt the file
-    const encryptionSuccess = await encryptFile(originalPath, encryptedPath);
-    
-    if (!encryptionSuccess) {
-      return res.status(500).json({ msg: 'File encryption failed' });
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const encryptedBuffer = encryptFile(fileBuffer);
+      
+      // Save encrypted file
+      const encryptedPath = req.file.path + '.enc';
+      fs.writeFileSync(encryptedPath, encryptedBuffer);
+      
+      // Remove original file
+      fs.unlinkSync(req.file.path);
+      
+      finalPath = encryptedPath;
+      isEncrypted = true;
+    } catch (encryptionError) {
+      console.error('File encryption failed:', encryptionError);
+      // Continue with unencrypted file
     }
 
-    // Generate a download link
-    const downloadLink = generateDownloadLink();
-
-    // Create file document in database
-    const file = new File({
-      filename,
-      originalName: req.file.originalname,
-      encryptedPath,
-      mimeType: req.file.mimetype,
+    // Create file record
+    const fileRecord = new File({
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
       size: req.file.size,
-      owner: req.user.id,
-      downloadLink
+      path: finalPath,
+      uploadedBy: req.user.id,
+      description: req.body.description || '',
+      isPublic: req.body.isPublic === 'true',
+      isEncrypted: isEncrypted
     });
 
-    await file.save();
+    await fileRecord.save();
 
-    // Remove the original unencrypted file
-    await fs.unlink(originalPath);
+    // Populate user info
+    await fileRecord.populate('uploadedBy', 'name email');
+
+    res.status(201).json({
+      message: 'File uploaded successfully',
+      file: fileRecord
+    });
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    
+    // Clean up uploaded file if error occurs
+    if (req.file && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('Error cleaning up file:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ 
+      message: 'Error uploading file', 
+      error: error.message 
+    });
+  }
+};
+
+// Get user files
+const getUserFiles = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const userFiles = await File.find({ uploadedBy: req.user.id })
+      .populate('uploadedBy', 'name email')
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const sharedFiles = await File.find({ 
+      'sharedWith.user': req.user.id 
+    })
+      .populate('uploadedBy', 'name email')
+      .populate('sharedWith.user', 'name email')
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalUserFiles = await File.countDocuments({ uploadedBy: req.user.id });
+    const totalSharedFiles = await File.countDocuments({ 'sharedWith.user': req.user.id });
 
     res.json({
-      msg: 'File uploaded successfully',
-      file: {
-        id: file._id,
-        filename: file.originalName,
-        downloadLink: file.downloadLink,
-        expiresAt: file.expiresAt
+      userFiles,
+      sharedFiles,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil((totalUserFiles + totalSharedFiles) / limit),
+        totalFiles: totalUserFiles + totalSharedFiles,
+        hasMore: skip + limit < totalUserFiles + totalSharedFiles
       }
     });
-  } catch (err) {
-    console.error('File upload error:', err.message);
-    res.status(500).send('Server error');
+
+  } catch (error) {
+    console.error('Get files error:', error);
+    res.status(500).json({ message: 'Error retrieving files' });
   }
 };
 
-// Download a file
-exports.downloadFile = async (req, res) => {
-  try {
-    const { downloadLink } = req.params;
-
-    // Find the file by download link
-    const file = await File.findOne({ downloadLink });
-
-    if (!file) {
-      return res.status(404).json({ msg: 'File not found' });
-    }
-
-    // Check if file has expired
-    if (new Date() > file.expiresAt) {
-      // Remove the file if expired
-      await fs.unlink(file.encryptedPath);
-      await file.remove();
-      return res.status(410).json({ msg: 'File has expired' });
-    }
-
-    // Check if file has reached max downloads
-    if (file.downloadCount >= file.maxDownloads) {
-      // Remove the file if max downloads reached
-      await fs.unlink(file.encryptedPath);
-      await file.remove();
-      return res.status(410).json({ msg: 'File download limit reached' });
-    }
-
-    // Temporary path for decrypted file
-    const tempPath = path.join(__dirname, '..', 'uploads', 'temp', file.filename);
-    
-    // Ensure temp directory exists
-    await fs.ensureDir(path.dirname(tempPath));
-
-    // Decrypt the file
-    const decryptionSuccess = await decryptFile(file.encryptedPath, tempPath);
-    
-    if (!decryptionSuccess) {
-      return res.status(500).json({ msg: 'File decryption failed' });
-    }
-
-    // Increment download count
-    file.downloadCount += 1;
-    await file.save();
-
-    // Send the file as a download
-    res.download(tempPath, file.originalName, async (err) => {
-      // Delete the temporary file after download
-      await fs.unlink(tempPath);
-      
-      // If this was the last download, remove the encrypted file too
-      if (file.downloadCount >= file.maxDownloads) {
-        await fs.unlink(file.encryptedPath);
-        await file.remove();
-      }
-    });
-  } catch (err) {
-    console.error('File download error:', err.message);
-    res.status(500).send('Server error');
-  }
-};
-
-// Get user's files
-exports.getUserFiles = async (req, res) => {
-  try {
-    const files = await File.find({ owner: req.user.id }).sort({ createdAt: -1 });
-    
-    // Format files for frontend
-    const formattedFiles = files.map(file => ({
-      id: file._id,
-      filename: file.originalName,
-      size: file.size,
-      downloadLink: file.downloadLink,
-      downloadCount: file.downloadCount,
-      maxDownloads: file.maxDownloads,
-      expiresAt: file.expiresAt,
-      createdAt: file.createdAt
-    }));
-    
-    res.json(formattedFiles);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-};
-
-// Delete a file
-exports.deleteFile = async (req, res) => {
+// Download file
+const downloadFile = async (req, res) => {
   try {
     const file = await File.findById(req.params.id);
 
     if (!file) {
-      return res.status(404).json({ msg: 'File not found' });
+      return res.status(404).json({ message: 'File not found' });
     }
 
-    // Check if the user owns the file
-    if (file.owner.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'Not authorized' });
+    // Check if user can access this file
+    if (!file.canUserAccess(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Delete the file from storage
-    await fs.unlink(file.encryptedPath);
-    
-    // Delete the file from database
-    await file.remove();
+    // Check if file exists on disk
+    if (!fs.existsSync(file.path)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
 
-    res.json({ msg: 'File deleted' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    // Update download count
+    file.downloadCount += 1;
+    file.lastDownloaded = new Date();
+    await file.save();
+
+    let fileBuffer;
+
+    try {
+      // Read and decrypt file if encrypted
+      if (file.isEncrypted) {
+        const encryptedBuffer = fs.readFileSync(file.path);
+        fileBuffer = decryptFile(encryptedBuffer);
+      } else {
+        fileBuffer = fs.readFileSync(file.path);
+      }
+    } catch (decryptionError) {
+      console.error('File decryption error:', decryptionError);
+      return res.status(500).json({ message: 'Error processing file' });
+    }
+
+    // Set headers for file download
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalname}"`);
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Content-Length', fileBuffer.length);
+
+    res.send(fileBuffer);
+
+  } catch (error) {
+    console.error('File download error:', error);
+    res.status(500).json({ message: 'Error downloading file' });
   }
+};
+
+// Share file
+const shareFile = async (req, res) => {
+  try {
+    const { email, permission = 'view' } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const file = await File.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Check if user owns this file
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only share your own files' });
+    }
+
+    // Find user to share with
+    const userToShareWith = await User.findOne({ email: email.toLowerCase() });
+
+    if (!userToShareWith) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if already shared
+    const alreadyShared = file.sharedWith.some(
+      share => share.user.toString() === userToShareWith._id.toString()
+    );
+
+    if (alreadyShared) {
+      return res.status(400).json({ message: 'File already shared with this user' });
+    }
+
+    // Add to shared list
+    file.sharedWith.push({
+      user: userToShareWith._id,
+      permission: permission,
+      sharedAt: new Date()
+    });
+
+    await file.save();
+
+    // Send notification email
+    try {
+      await sendFileShareNotification(
+        userToShareWith.email,
+        userToShareWith.name,
+        file.originalname,
+        req.user.name
+      );
+    } catch (emailError) {
+      console.error('Error sending share notification:', emailError);
+    }
+
+    res.json({
+      message: 'File shared successfully',
+      sharedWith: {
+        user: {
+          id: userToShareWith._id,
+          name: userToShareWith.name,
+          email: userToShareWith.email
+        },
+        permission: permission
+      }
+    });
+
+  } catch (error) {
+    console.error('File share error:', error);
+    res.status(500).json({ message: 'Error sharing file' });
+  }
+};
+
+// Delete file
+const deleteFile = async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Check if user owns this file
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only delete your own files' });
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(file.path)) {
+      try {
+        fs.unlinkSync(file.path);
+      } catch (fileError) {
+        console.error('Error deleting file from disk:', fileError);
+      }
+    }
+
+    // Delete from database
+    await File.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'File deleted successfully' });
+
+  } catch (error) {
+    console.error('File delete error:', error);
+    res.status(500).json({ message: 'Error deleting file' });
+  }
+};
+
+module.exports = {
+  uploadFile,
+  getUserFiles,
+  downloadFile,
+  shareFile,
+  deleteFile
 };
