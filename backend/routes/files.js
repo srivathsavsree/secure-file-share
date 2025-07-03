@@ -81,14 +81,11 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
 
         await file.save();
 
-        // Generate QR code data
-        const qrCodeData = JSON.stringify({
-            fileId: file._id,
-            fileName: originalName
-        });
+        // Generate direct download URL for QR code and email
+        const downloadUrl = `${process.env.FRONTEND_URL}/api/files/download/${file._id}`;
 
         try {
-            // Send email with decryption key and QR code
+            // Send email with decryption key and QR code (direct download)
             await sendDecryptionKey(
                 receiverEmail,
                 encryptionKey,
@@ -96,7 +93,7 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
                     fileName: originalName,
                     fileId: file._id
                 },
-                qrCodeData
+                downloadUrl
             );
         } catch (emailError) {
             console.error('Error sending email:', emailError);
@@ -106,7 +103,7 @@ router.post('/upload', [auth, upload.single('file')], async (req, res) => {
             });
             await file.deleteOne();
             return res.status(500).json({ 
-                message: 'Error sending email. Please check your EmailJS configuration.',
+                message: 'Error sending email. Please check your SendGrid configuration.',
                 error: emailError.message
             });
         }

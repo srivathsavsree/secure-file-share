@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, Grid, Paper } from '@mui/material';
+import { Box, Typography, Button, Grid, Paper, List, ListItem, ListItemText } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -77,6 +77,37 @@ const Home = () => {
         <Typography sx={{ color: '#222' }}>
           We designed Secure File Share with privacy as the top priority. We do not have access to your encryption keys, meaning even we cannot access your files. Your data remains private and secure at all times.
         </Typography>
+      </Box>
+
+      <Box sx={{ mt: 4 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h3" gutterBottom>
+            Welcome to Secure File Share
+          </Typography>
+          <Typography variant="h6" gutterBottom>
+            Securely share files with anyone, anywhere.
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemText primary="🔒 End-to-end file encryption (AES-256)" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="📧 Email notifications powered by SendGrid" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="📱 Scan QR code for instant, direct file download" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="🕒 Files auto-expire after 24 hours or 3 failed attempts" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="🛡️ Only the intended recipient can access and decrypt files" />
+            </ListItem>
+          </List>
+          <Typography variant="body1" sx={{ mt: 2 }}>
+            Get started by registering an account, uploading your file, and sharing it securely!
+          </Typography>
+        </Paper>
       </Box>
     </Box>
   );
