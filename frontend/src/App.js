@@ -16,6 +16,8 @@ import Login from './components/auth/Login';
 import Dashboard from './components/dashboard/Dashboard';
 import Alert from './components/layout/Alert';
 import PrivateRoute from './components/routing/PrivateRoute';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 
 import { initializeAuth } from './utils/auth';
 
@@ -51,6 +53,8 @@ const App = () => {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/dashboard" element={<PrivateRoute element={<Dashboard />} />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password/:token" element={<ResetPassword />} />
                 </Routes>
               </Container>
             </Box>
