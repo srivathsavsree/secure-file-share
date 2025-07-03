@@ -11,7 +11,7 @@ import {
   Container
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 const FileDownload = () => {
   const { fileId } = useParams();
