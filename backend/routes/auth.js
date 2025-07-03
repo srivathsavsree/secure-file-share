@@ -59,10 +59,7 @@ router.post('/register', [
             privateKey
         });
 
-        // Hash password
-       const salt=process.env.SALT;
-        user.password = await bcrypt.hash(password, salt);
-
+        // No manual hash here; pre-save hook will hash password
         await user.save();
 
         // Create and return JWT token
@@ -114,8 +111,7 @@ router.post('/login', [
         }
 
         // Verify password
-        const salt = process.env.SALT;
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await user.comparePassword(password);
         
         if (!isMatch) {
             user.failedAttempts += 1;
